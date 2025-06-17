@@ -13,40 +13,26 @@ import sys
 import os
 import math
 import datetime
-import configparser
-import time
 
 import cv2
 from PySide6.QtWidgets import (
     QMainWindow, QApplication, QLabel, QLineEdit,
-    QGridLayout, QGraphicsScene, QGraphicsView
+    QGridLayout, QGraphicsScene, QGraphicsView, QDialog
 )
 from PySide6.QtCore import Qt, QDateTime
-from PySide6.QtGui import QPixmap, QImage
+from PySide6.QtGui import QPixmap
 
+from util.file import (load_ini, get_exe_dir, write_ini)
 from ui_main_window import Ui_MainWindow
-from camera_work import CameraWorker
-from plc_work import PlcWorker
-
-# 全局读取 settings.ini
-config = configparser.ConfigParser()
-# 使用程序目录下的 INI
-base_dir = os.path.dirname(__file__)
-config_path = os.path.join(base_dir, 'settings.ini')
-config.read(config_path, encoding='utf-8')
+from work.camera_work import CameraWorker
+from work.plc_work import PlcWorker
+from ui.login import LoginDialog
 
 def on_param_changed(section: str, key: str, value: str):
     """
-    UI 中参数编辑框变更时回调，立即写回 settings.ini
-    - section: INI 节名
-    - key: 参数名
-    - value: 新值
+    回写配置
     """
-    if not config.has_section(section):
-        config.add_section(section)
-    config.set(section, key, value)
-    with open(config_path, 'w', encoding='utf-8') as f:
-        config.write(f)
+    write_ini(section, key, value)
 
 def clear_layout(layout: QGridLayout):
     """
@@ -65,8 +51,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     """
     MAX_LOG_ENTRIES = 2000  # 日志最大行数，超过则自动删除最旧
 
-    def __init__(self):
+    def __init__(self, skipped: bool = True):
         super().__init__()
+        self.skipp_login = skipped
         # 加载 UI
         self.setupUi(self)
 
@@ -77,18 +64,22 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.gridLayout.setRowStretch(1, 3)
 
         # ------ 准备动态模式切换和参数编辑 ------
-        # 所有节名（含 Calib, Plc, Detection...）
-        self.sections = list(config.sections())
+        # 所有节名（含 Calib, Plc, Camera...）
+        config = load_ini()
+        exclude = {'Calib', 'Plc', 'Camera', 'Detector', 'Auth'} if skipped else {'Auth'}
+        self.sections = [s for s in config.sections() if s not in exclude]
+        self.current_section = self.sections[0]
         self.config_widgets = {}  # 存放 label+edit
         self._edits = {}  # 存放 (section,key)->QLineEdit
 
         # 过滤特定节，构建参数控件列表（但不布局）
         for section in self.sections:
-            for key, val in config[section].items():
-                lbl = QLabel(f"{key.replace('_', ' ').title()}:")
-                edit = QLineEdit(val)
-                edit.setMaximumWidth(200)
-                self.config_widgets[f"{section}.{key}"] = (lbl, edit)
+            if section not in self.config_widgets:
+                for key, val in config[section].items():
+                    lbl = QLabel(f"{key.replace('_', ' ').title()}:")
+                    edit = QLineEdit(val)
+                    edit.setMaximumWidth(320)
+                    self.config_widgets[f"{section}.{key}"] = (lbl, edit)
 
         # ------ 模式选择下拉框 ------
         # modes 所有的节
@@ -131,11 +122,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # ------ 日志系统初始化 ------
         self.listLogs.clear()
-        self.logs_dir = os.path.join(base_dir, "logs")
+        self.logs_dir = os.path.join(get_exe_dir(), "logs")
         os.makedirs(self.logs_dir, exist_ok=True)
         self.log_date = datetime.date.today()
-        log_name = f"{self.log_date.isoformat()}.log"
-        self.log_file = open(os.path.join(self.logs_dir, log_name), 'a', encoding='utf-8')
+        self.log_name = f"{self.log_date.isoformat()}.log"
+        self.log_file = open(os.path.join(self.logs_dir, self.log_name), 'a', encoding='utf-8')
+        self.log_file.close()
 
     def on_check_save_image_toggled(self, checked: bool):
         """
@@ -176,13 +168,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.btnConnectCamera.setText("连接相机")
             self.labelCameraStatus.setText("相机状态： 未检测到相机")
             self.labelCameraStatus.setStyleSheet("color:red;font-size:16px;")
-            self.on_log_message("相机断开连接")
+            self.on_log_message(f"[{self.current_section}] 相机断开连接")
             self.btnConnectCamera.setEnabled(True)
         else:
             self.btnConnectCamera.setText("断开相机")
             self.labelCameraStatus.setText("相机状态： 已连接")
             self.labelCameraStatus.setStyleSheet("color:green;font-size:16px;")
-            self.on_log_message("相机已连接")
+            self.on_log_message(f"[{self.current_section}] 相机已连接")
             self.btnConnectCamera.setEnabled(True)
         self.btnConnectCamera.setFocus()
 
@@ -210,13 +202,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.btnConnectCamera.setText("连接相机")
             self.labelCameraStatus.setText("相机状态： 未连接")
             self.labelCameraStatus.setStyleSheet("color:red;font-size:16px;")
-            self.on_log_message("相机未连接")
+            self.on_log_message(f"[{self.current_section}] 相机未连接")
         else:
             try:
                 self.labelCameraStatus.setText("相机状态： 连接中...")
                 self.labelCameraStatus.setStyleSheet("color:orange;font-size:16px;")
-                time.sleep(0.2)
                 # 从 INI 读取 PLC 配置
+                config = load_ini()
                 plc_conf = config['Plc']
                 host = plc_conf.get('Host')
                 port = plc_conf.getint('Port')
@@ -246,7 +238,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.cam_thread.logMessage.connect(self.on_log_message)
                 self.cam_thread.start()
             except Exception as e:
-                self.on_log_message(str(e))
+                self.on_log_message(f"[{self.current_section}] 连接相机失败，失败原因：{e}")
                 self.btnConnectCamera.setText("连接相机")
                 self.labelCameraStatus.setText("相机状态： 未连接")
                 self.labelCameraStatus.setStyleSheet("color:red;font-size:16px;")
@@ -270,13 +262,16 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # 分日期切换日志文件
         today = datetime.date.today()
         if today != self.log_date:
-            self.log_file.close()
             self.log_date = today
-            new_log = f"{today.isoformat()}.log"
-            self.log_file = open(os.path.join(self.logs_dir, new_log), 'a', encoding='utf-8')
-        # 写到文件并 flush
-        self.log_file.write(line + "\n")
-        self.log_file.flush()
+            self.log_name = f"{today.isoformat()}.log"
+        try:
+            self.log_file = open(os.path.join(self.logs_dir, self.log_name), 'a', encoding='utf-8')
+            # 写到文件并 flush
+            self.log_file.write(line + "\n")
+            self.log_file.flush()
+            self.log_file.close()
+        finally:
+            pass
 
     def on_mode_changed_combo(self, index: int):
         """ComboBox 模式切换槽，按选中索引加载不同节"""
@@ -284,6 +279,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             return
         section = self.modes[index]
         # 更新当前节并重建参数区
+        config = load_ini()
         self.current_section = section
         clear_layout(self.gridConfig)
         items = list(config[self.current_section].items())
@@ -302,7 +298,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             c = idx // rows
             lbl = QLabel(f"{key.replace('_', ' ').capitalize()}:")
             edit = QLineEdit(val)
-            edit.setMaximumWidth(240)
+            edit.setMaximumWidth(320)
+            if self.skipp_login:
+                edit.setReadOnly(True)
             self._edits[(self.current_section, key)] = edit
             # 实时写回 INI
             edit.textChanged.connect(
@@ -333,16 +331,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.plc_thread.stop()
             finally:
                 pass
-        # 关闭日志文件
-        try:
-            self.log_file.close()
-        finally:
-            pass
         super().closeEvent(event)
 
 
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    win = MainWindow()
-    win.show()
-    sys.exit(app.exec())
+    app = QApplication([])
+    dlg = LoginDialog()
+    if dlg.exec() == QDialog.Accepted:
+        # 登录或跳过，打开主窗口
+        w = MainWindow(dlg.skipped)
+        w.showMaximized()
+        sys.exit(app.exec())

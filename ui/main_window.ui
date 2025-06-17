@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>上管机图像检测程序</string>
   </property>
   <widget class="QWidget" name="central widget">
    <property name="font">

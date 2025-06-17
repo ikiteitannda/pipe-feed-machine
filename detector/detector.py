@@ -1,8 +1,18 @@
+# -*- coding: utf-8 -*-
+"""
+
+detector：
+    图像检测算法 目前适用于：22mm-双端开口-无色
+
+修改人： hnchen
+修改时间： 2025/06/17
+"""
 import cv2
 import numpy as np
 import math
 from typing import List, Tuple
-
+from util.file import load_ini
+from PySide6.QtGui import QImage, QPixmap
 
 def preprocess_image(gray: np.ndarray,
                      clahe_clip: float = 2.0,
@@ -62,12 +72,14 @@ def nms_circles(circles: List[Tuple],
 
 
 def detect_circles_via_hough(gray: np.ndarray,
+                              ksize_grid: Tuple[int,int] = (9,9),
+                              sigma_x: float = 1.0,
                               dp: float = 1.2,
-                              mindist: float = 120,
-                              param1: float = 35,
-                              param2: float = 35,
-                              minradius: int = 45,
-                              maxradius: int = 60
+                              min_dist: float = 200,
+                              param1: float = 110,
+                              param2: float = 45,
+                              min_radius: int = 110,
+                              max_radius: int = 150
                               ) -> List[Tuple[None, Tuple[int,int,int]]]:
     """
     使用Hough变换检测图像中的圆圈。
@@ -85,17 +97,17 @@ def detect_circles_via_hough(gray: np.ndarray,
         List[Tuple[None, Tuple[int,int,int]]]: 检测出的圆的列表，每个元素为 (None, (cx, cy, r))。
     """
     # 先进行高斯模糊，抑制噪声
-    blur = cv2.GaussianBlur(gray, (5,5), 1)
-    # 调用HoughCircles方法
+    blur = cv2.GaussianBlur(gray, ksize_grid, sigma_x)
+    # 使用霍夫变换，寻找所有圆
     circles = cv2.HoughCircles(
-        blur, cv2.HOUGH_GRADIENT, dp=dp, minDist=mindist,
+        blur, cv2.HOUGH_GRADIENT, dp=dp, minDist=min_dist,
         param1=param1, param2=param2,
-        minRadius=minradius, maxRadius=maxradius)
+        minRadius=min_radius, maxRadius=max_radius)
     results = []
     if circles is not None:
         # 将检测结果四舍五入并转为整数
         for x,y,r in np.round(circles[0]).astype(int):
-            if minradius <= r <= maxradius:
+            if min_radius <= r <= max_radius:
                 results.append((None,(x,y,r)))
     return results
 
@@ -162,39 +174,79 @@ def draw_detected_circles(img: np.ndarray,
     返回:
         np.ndarray: 绘制完成的结果图像。
     """
-    out = img.copy()
-    # 绘制所有圆边界及中心点
-    for cnt,(cx,cy,r) in circles:
-        cv2.circle(out, (cx,cy), r, (0,255,0), 2)     # 绿色圆边
-        cv2.circle(out, (cx,cy), 3, (0,255,255), -1)    # 黄色圆心点
-    # 绘制最左上圆心
-    tx,ty = target
-    if (tx,ty)!=(-1,-1):
-        cv2.circle(out,(tx,ty),6,(0,0,255),-1)        # 红色标记点
-        cv2.putText(out,f"Top-Left: ({tx},{ty})",(tx+8,ty-8),
-                    cv2.FONT_HERSHEY_SIMPLEX,0.5,(0,0,255),2)  # 标注文本
-    return out
+    annotated = img.copy()
+    # 绘制颜色
+    fill_color = (139, 0, 0)   # 深蓝色填充
+    radius_color = (0, 255, 0) # 绿色边框
+    target_color = (0, 0, 255) # 红色标注
 
-if __name__ == "__main__":
-    # 读取图像并转换为灰度
-    img = cv2.imread("test_image7.jpg")
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # 1) 用淡蓝色填充圆管区域
+    for (_, (cx, cy, r)) in circles:
+        # 绘制虚拟圆轮廓
+        cv2.circle(annotated, (cx, cy), r, radius_color, thickness=2)
+        # thickness=-1 表示实心填充
+        cv2.circle(annotated, (cx, cy), r, fill_color, thickness=-1)
+
+    # 2) 标注最左上圆心（如果有效）
+    if target != (-1, -1):
+        tx, ty = target
+        cv2.circle(annotated, (tx, ty), 6, target_color, -1)
+        cv2.putText(annotated, f"Top-Left: ({tx},{ty})", (tx + 8, ty - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, target_color, 2)
+    cv2.imwrite("output_with_circles.png", annotated)
+    return annotated
+
+
+def detect_image (section: str, height: float, width: float, gray: np.ndarray, bgr: np.ndarray) -> (np.ndarray, float, float, int):
+    """
+    图像检测算法
+
+    参数:
+        section: 配置节名称。
+        height: 原始图像高度。
+        width: 原始图像宽度。
+        gray (np.ndarray): 原始灰度图像。
+        bgr (np.ndarray): 原始彩色图像。
+
+    返回:
+        pix (np.ndarray): 绘制后的图像。
+        tx, ty (Tuple[int,int]): 最左上圆的圆心坐标 (x, y)。
+        len(circles): 圆管总数
+    """
+    # 使用程序目录下的 INI
+    cfg = load_ini()
+    sec = cfg[section]
+
+    # 读取配置
+    clahe_clip = sec.getfloat('clahe_clip')
+    kx, ky = map(int, sec.get('clahe_grid').split(','))
+    gamma = sec.getfloat('gamma')
+    ksize_x, ksize_y = map(int, sec.get('ksize_grid').split(','))
+    sigma_x = sec.getfloat('sigma_x')
+    dp = sec.getfloat('dp')
+    min_dist = sec.getfloat('min_dist')
+    param1 = sec.getfloat('param1')
+    param2 = sec.getfloat('param2')
+    min_radius = sec.getint('min_radius')
+    max_radius = sec.getint('max_radius')
+    overlap_thresh = sec.getfloat('overlap_thresh')
+    tolerance = sec.getint('tolerance')
 
     # 第一步：图像预处理 → 提升对比度 + 亮度校正
-    gray_p = preprocess_image(gray)
+    gray_p = preprocess_image(gray, clahe_clip, (kx, ky), gamma)
 
     # 第二步：Hough圆检测
-    h_circles = detect_circles_via_hough(gray_p)
+    h_circles = detect_circles_via_hough(gray_p, (ksize_x, ksize_y), sigma_x, dp, min_dist, param1, param2, min_radius, max_radius)
+
     # 第三步：非极大抑制过滤重叠
-    circles = nms_circles(h_circles)
+    circles = nms_circles(h_circles, overlap_thresh)
 
     # 第四步：按行分组并找到最左上圆心
-    groups = group_by_rows(circles)
-    tl = find_top_left_circle(groups)
+    groups = group_by_rows(circles, tolerance)
+    tx, ty = find_top_left_circle(groups)
 
-    # 第五步：绘制结果并展示/保存
-    out = draw_detected_circles(img, circles, tl)
-    cv2.imwrite("output_with_circles.png", out)
-    cv2.imshow("Result", out)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    # 绘制检测结果
+    annotated = draw_detected_circles(bgr.copy(), circles, (tx, ty))
+    rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
+    qimg = QImage(rgb.data, width, height, 3 * width, QImage.Format_RGB888)
+    pix = QPixmap.fromImage(qimg)
+    return pix, tx, ty, len(circles)
