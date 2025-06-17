@@ -222,6 +222,8 @@ def detect_image (section: str, height: float, width: float, gray: np.ndarray, b
     gamma = sec.getfloat('gamma')
     top_ignore = sec.getfloat('top_ignore')
     bot_ignore = sec.getfloat('bot_ignore')
+    left_ignore = sec.getfloat('left_ignore')
+    right_ignore = sec.getfloat('right_ignore')
     ksize_x, ksize_y = map(int, sec.get('ksize_grid').split(','))
     sigma_x = sec.getfloat('sigma_x')
     dp = sec.getfloat('dp')
@@ -236,12 +238,16 @@ def detect_image (section: str, height: float, width: float, gray: np.ndarray, b
     # 第一步：图像预处理 → 提升对比度 + 亮度校正
     gray_p = preprocess_image(gray, clahe_clip, (kx, ky), gamma)
 
-    # —— 在此处屏蔽上下区域 —— #
+    # —— 在此处屏蔽上下左右区域 —— #
     h, w = gray_p.shape
     top = int(h * round(top_ignore, 2))
     bot = int(h * (1 - round(bot_ignore, 2)))
+    left = int(h * round(left_ignore, 2))
+    right = int(h * (1 - round(right_ignore, 2)))
     gray_p[:top, :] = 0
     gray_p[bot:, :] = 0
+    gray_p[:, :left] = 0
+    gray_p[:, right:] = 0
 
     # 第二步：Hough圆检测
     h_circles = detect_circles_via_hough(gray_p, (ksize_x, ksize_y), sigma_x, dp, min_dist, param1, param2, min_radius, max_radius)
