@@ -242,8 +242,8 @@ def detect_image (section: str, height: float, width: float, gray: np.ndarray, b
     h, w = gray_p.shape
     top = int(h * round(top_ignore, 2))
     bot = int(h * (1 - round(bot_ignore, 2)))
-    left = int(h * round(left_ignore, 2))
-    right = int(h * (1 - round(right_ignore, 2)))
+    left = int(w * round(left_ignore, 2))
+    right = int(w * (1 - round(right_ignore, 2)))
     gray_p[:top, :] = 0
     gray_p[bot:, :] = 0
     gray_p[:, :left] = 0
