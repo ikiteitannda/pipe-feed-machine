@@ -142,6 +142,7 @@ class LoginDialog(QDialog):
         main_layout.addStretch()
         main_layout.addLayout(btn_layout)
         main_layout.setContentsMargins(20, 20, 20, 20)
+        self.user_edit.setFocus()
         # 信号
         self.btn_login.clicked.connect(self.do_login)
         self.btn_change.clicked.connect(self.change_password)
