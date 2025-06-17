@@ -1,0 +1,23 @@
+py -m pip install virtualenv
+
+"C:\Users\hnchen\AppData\Local\Programs\Python\Python312\Scripts\virtualenv.exe" venv
+
+.\venv\Scripts\activate
+
+pip install -r requirements.txt
+
+pip install pyinstaller
+
+pyi-makespec --onefile --windowed main.py
+
+# 修改main.spec文件，更改datas打包数据内容
+datas=[
+    ('settings.ini', '.'),
+    ('ui_main_window.py', '.'),
+    ('gxipy', 'gxipy'),   # 包整个 gxipy 文件夹
+    ('D:/工作文件/Projects/上管机测试/venv/Lib/site-packages/PySide6/plugins/platforms', 'platforms')
+],
+
+pyinstaller main.spec
+
+deactivate

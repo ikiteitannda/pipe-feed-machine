@@ -103,6 +103,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         clear_layout(self.gridConfig)
 
         # ------ 按钮和复选框信号 ------
+        self.labelCameraStatus.setStyleSheet("color:red;font-size:16px;")
         self.btnConnectCamera.clicked.connect(self.on_connect_camera)
         self.save_image = False
         self.chkSaveImage.toggled.connect(self.on_check_save_image_toggled)
