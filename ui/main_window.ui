@@ -101,10 +101,30 @@
           <widget class="QGroupBox" name="groupConfig">
             <property name="title"><string>Config</string></property>
             <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Preferred"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
-            <property name="minimumHeight"><number>250</number></property>
-            <layout class="QGridLayout" name="gridConfig">
-              <!-- Dynamic config widgets will be added here at runtime -->
-            </layout>
+            <layout class="QVBoxLayout" name="verticalLayoutConfig">
+                <!-- —— “提示区”，初始隐藏 —— -->
+                <item>
+                  <widget class="QLabel" name="labelConfigWarning">
+                    <property name="text">
+                      <string>修改 Camera 或 Plc 参数后，请务必重新连接相机</string>
+                    </property>
+                    <property name="styleSheet">
+                      <string>color: red; font-weight: bold; font-size:22px;</string>
+                    </property>
+                    <property name="visible">
+                      <bool>false</bool>  <!-- 默认隐藏 -->
+                    </property>
+                  </widget>
+                </item>
+                <!-- —— 参数区 —— -->
+                <item>
+                  <widget class="QWidget" name="configContent">
+                    <layout class="QGridLayout" name="gridConfig">
+                      <!-- Dynamic config widgets will be added here at runtime -->
+                    </layout>
+                  </widget>
+                </item>
+           </layout>
           </widget>
         </item>
       </layout>

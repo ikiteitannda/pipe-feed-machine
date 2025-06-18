@@ -66,7 +66,7 @@ class PlcWorker(QThread):
         self._running = True
         while self._running:
             if not self._queue:
-                time.sleep(0.01)
+                time.sleep(0.05)
                 continue
             # 弹出一组坐标准备发送
             x, z, count = self._queue.pop(0)

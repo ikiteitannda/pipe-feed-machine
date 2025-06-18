@@ -119,9 +119,22 @@ class Ui_MainWindow(object):
         sizePolicy1.setVerticalStretch(0)
         sizePolicy1.setHeightForWidth(self.groupConfig.sizePolicy().hasHeightForWidth())
         self.groupConfig.setSizePolicy(sizePolicy1)
-        self.groupConfig.setMinimumHeight(250)
-        self.gridConfig = QGridLayout(self.groupConfig)
+        self.verticalLayoutConfig = QVBoxLayout(self.groupConfig)
+        self.verticalLayoutConfig.setObjectName(u"verticalLayoutConfig")
+        self.labelConfigWarning = QLabel(self.groupConfig)
+        self.labelConfigWarning.setObjectName(u"labelConfigWarning")
+        self.labelConfigWarning.setVisible(False)
+
+        self.verticalLayoutConfig.addWidget(self.labelConfigWarning)
+
+        self.configContent = QWidget(self.groupConfig)
+        self.configContent.setObjectName(u"configContent")
+        self.gridConfig = QGridLayout(self.configContent)
         self.gridConfig.setObjectName(u"gridConfig")
+        self.gridConfig.setContentsMargins(0, 0, 0, 0)
+
+        self.verticalLayoutConfig.addWidget(self.configContent)
+
 
         self.gridLayoutBottom.addWidget(self.groupConfig, 0, 1, 1, 1)
 
@@ -146,5 +159,7 @@ class Ui_MainWindow(object):
         self.btnConnectCamera.setText(QCoreApplication.translate("MainWindow", u"\u8fde\u63a5\u76f8\u673a", None))
         self.labelCameraStatus.setText(QCoreApplication.translate("MainWindow", u"\u76f8\u673a\u72b6\u6001\uff1a \u5c1a\u672a\u8fde\u63a5", None))
         self.groupConfig.setTitle(QCoreApplication.translate("MainWindow", u"Config", None))
+        self.labelConfigWarning.setText(QCoreApplication.translate("MainWindow", u"\u4fee\u6539 Camera \u6216 Plc \u53c2\u6570\u540e\uff0c\u8bf7\u52a1\u5fc5\u91cd\u65b0\u8fde\u63a5\u76f8\u673a", None))
+        self.labelConfigWarning.setStyleSheet(QCoreApplication.translate("MainWindow", u"color: red; font-weight: bold; font-size:22px;", None))
     # retranslateUi
 

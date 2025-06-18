@@ -100,10 +100,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.verticalLayoutControls.setContentsMargins(2, 2, 2, 2)
 
         # 清空参数编辑区
+        self.labelConfigWarning.setFixedHeight(35)
         clear_layout(self.gridConfig)
 
         # ------ 按钮和复选框信号 ------
-        self.labelCameraStatus.setStyleSheet("color:red;font-size:16px;")
+        self.labelCameraStatus.setStyleSheet("color:red;font-size:16px;font-weight: bold;")
         self.btnConnectCamera.clicked.connect(self.on_connect_camera)
         self.save_image = False
         self.chkSaveImage.toggled.connect(self.on_check_save_image_toggled)
@@ -168,13 +169,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.plc_thread = None
             self.btnConnectCamera.setText("连接相机")
             self.labelCameraStatus.setText("相机状态： 未检测到相机")
-            self.labelCameraStatus.setStyleSheet("color:red;font-size:16px;")
+            self.labelCameraStatus.setStyleSheet("color:red;font-size:16px;font-weight: bold;")
             self.on_log_message(f"[{self.current_section}] 相机断开连接")
             self.btnConnectCamera.setEnabled(True)
         else:
             self.btnConnectCamera.setText("断开相机")
             self.labelCameraStatus.setText("相机状态： 已连接")
-            self.labelCameraStatus.setStyleSheet("color:green;font-size:16px;")
+            self.labelCameraStatus.setStyleSheet("color:green;font-size:16px;font-weight: bold;")
             self.on_log_message(f"[{self.current_section}] 相机已连接")
             self.btnConnectCamera.setEnabled(True)
         self.btnConnectCamera.setFocus()
@@ -186,7 +187,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.btnConnectCamera.setEnabled(False)
         if self.cam_thread:
             self.labelCameraStatus.setText("相机状态： 断开中...")
-            self.labelCameraStatus.setStyleSheet("color:orange;font-size:16px;")
+            self.labelCameraStatus.setStyleSheet("color:orange;font-size:16px;font-weight: bold;")
             # 立刻刷新 UI
             QApplication.processEvents()
             # 停止所有线程
@@ -202,12 +203,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.plc_thread = None
             self.btnConnectCamera.setText("连接相机")
             self.labelCameraStatus.setText("相机状态： 未连接")
-            self.labelCameraStatus.setStyleSheet("color:red;font-size:16px;")
+            self.labelCameraStatus.setStyleSheet("color:red;font-size:16px;font-weight: bold;")
             self.on_log_message(f"[{self.current_section}] 相机未连接")
         else:
             try:
                 self.labelCameraStatus.setText("相机状态： 连接中...")
-                self.labelCameraStatus.setStyleSheet("color:orange;font-size:16px;")
+                self.labelCameraStatus.setStyleSheet("color:orange;font-size:16px;font-weight: bold;")
                 # 从 INI 读取 PLC 配置
                 config = load_ini()
                 plc_conf = config['Plc']
@@ -242,7 +243,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.on_log_message(f"[{self.current_section}] 连接相机失败，失败原因：{e}")
                 self.btnConnectCamera.setText("连接相机")
                 self.labelCameraStatus.setText("相机状态： 未连接")
-                self.labelCameraStatus.setStyleSheet("color:red;font-size:16px;")
+                self.labelCameraStatus.setStyleSheet("color:red;font-size:16px;font-weight: bold;")
         self.btnConnectCamera.setEnabled(True)
         self.btnConnectCamera.setFocus()
 
@@ -287,6 +288,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.cam_thread.set_section(self.current_section)
         if self.plc_thread and self.plc_thread.isRunning():
             self.plc_thread.set_section(self.current_section)
+
+        # —— 根据是否选中 Camera、Plc 模式来控制那行红字提示 —— #
+        if section in ['Camera', 'Plc']:
+            self.labelConfigWarning.show()
+        else:
+            self.labelConfigWarning.hide()
 
         clear_layout(self.gridConfig)
         # 根据模式绘制参数项目
