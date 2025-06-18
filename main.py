@@ -66,7 +66,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # ------ 准备动态模式切换和参数编辑 ------
         # 所有节名（含 Calib, Plc, Camera...）
         config = load_ini()
-        exclude = {'Calib', 'Plc', 'Camera', 'Detector', 'Auth'} if skipped else {'Auth'}
+        exclude = {'Calib', 'Plc', 'Camera', 'Detector', 'Auth'} if skipped else {'Auth', 'Detector'}
         self.sections = [s for s in config.sections() if s not in exclude]
         self.current_section = self.sections[0]
         self.config_widgets = {}  # 存放 label+edit
@@ -224,8 +224,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.plc_thread.start()
                 # 从 INI 读取 Camera 配置
                 cam_conf = config['Camera']
-                index = cam_conf.getint('Index')
-                timeout = cam_conf.getint('Timeout')
+                index = cam_conf.getint('Index', fallback=1)
+                timeout = cam_conf.getint('Timeout', fallback=3000)
                 # 启动 Camera 线程
                 self.cam_thread = CameraWorker(
                     section=self.current_section,
@@ -282,14 +282,20 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # 更新当前节并重建参数区
         config = load_ini()
         self.current_section = section
-        clear_layout(self.gridConfig)
-        items = list(config[self.current_section].items())
-        n = len(items)
         # 更新线程读取的节
         if self.cam_thread and self.cam_thread.isRunning():
             self.cam_thread.set_section(self.current_section)
         if self.plc_thread and self.plc_thread.isRunning():
             self.plc_thread.set_section(self.current_section)
+
+        clear_layout(self.gridConfig)
+        # 根据模式绘制参数项目
+        if self.skipp_login:
+            exclude = ['ui_offest_x', 'ui_offest_z']
+            items = [item for item in list(config[self.current_section].items()) if item[0] in exclude]
+        else:
+            items = list(config[self.current_section].items())
+        n = len(items)
         # 计算网格行列
         cols = math.ceil(math.sqrt(n))
         rows = math.ceil(n / cols)
@@ -300,8 +306,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             lbl = QLabel(f"{key.replace('_', ' ').capitalize()}:")
             edit = QLineEdit(val)
             edit.setMaximumWidth(320)
-            if self.skipp_login:
-                edit.setReadOnly(True)
             self._edits[(self.current_section, key)] = edit
             # 实时写回 INI
             edit.textChanged.connect(

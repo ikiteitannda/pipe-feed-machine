@@ -49,8 +49,8 @@ class PlcWorker(QThread):
 
         # 读取 INI 配置
         cfg = load_ini()
-        # 寄存器字节重排顺序，例如 'BADC' 或 'DCBA'
-        self.byte_order = cfg["Plc"].get("byte_order", "BADC").upper()
+        # 寄存器字节重排顺序，例如 'BADC' 或 'DCAB'
+        self.byte_order = cfg["Plc"].get("byte_order", "DCAB").upper()
         # 寄存器值发送顺序序列，例如 ['x','z','count','mode','const']
         self.seq = [s.strip() for s in cfg["Plc"].get('sequence', 'x,z,count,mode,const').split(',')]
         # 可选固定值
@@ -78,7 +78,7 @@ class PlcWorker(QThread):
                     continue
                 self.logMessage.emit(f"[{self.section}] 发送plc数据开始...")
                 # 构造寄存器值列表并写入
-                self._write_registers(x, z, count)
+                self.write_registers(x, z, count)
             except Exception as e:
                 # 捕获任何异常，并记录日志
                 self.logMessage.emit(f"[{self.section}] plc处理失败：{e}")
@@ -119,7 +119,7 @@ class PlcWorker(QThread):
             self.logMessage.emit(f"[{self.section}] 无效的字节顺序：'{self.byte_order}'，必须由 A/B/C/D 组成")
             return []
 
-    def _write_registers(self, x: float, z: float, count: int):
+    def write_registers(self, x: float, z: float, count: int):
         """
         根据 self.seq 定义的顺序拼接寄存器值并写入 PLC
         支持 'x','z','count','mode','const' 等关键字

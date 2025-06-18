@@ -123,8 +123,8 @@ class CameraWorker(QThread):
                 self.logMessage.emit(f"[{self.section}] 未检测到相机，停止运行")
                 return
 
-            # 打开相机（独占模式）
-            cam = mgr.open_device_by_index(self.index, access_mode=GxAccessMode.EXCLUSIVE)
+            # 打开相机
+            cam = mgr.open_device_by_index(self.index)
             # 外触发配置
             cam.TriggerMode.set(GxSwitchEntry.ON)
             cam.TriggerSource.set(GxTriggerSourceEntry.LINE0)
@@ -134,10 +134,15 @@ class CameraWorker(QThread):
             cfg = load_ini()
             pkt = cam.GevSCPSPacketSize.get()
             cam.GevSCPSPacketSize.set(pkt)
-            cam.GevHeartbeatTimeout.set(cfg["Camera"].getint("heartbeat"))
+            cam.GevHeartbeatTimeout.set(cfg["Camera"].getint("heartbeat", fallback=3000))
+            # 设置曝光时间 —— # 默认 2000 ns
+            expo_us = cfg["Camera"].getint("exposure_time", fallback=2000)
+            cam.ExposureTime.set(expo_us)
+            gain = cfg['Camera'].getfloat('gain', fallback=0.0)
+            cam.Gain.set(gain)
             # 数据流配置
             stream = cam.data_stream[0]
-            stream.set_acquisition_buffer_number(cfg["Camera"].getint("buffer_number"))
+            stream.set_acquisition_buffer_number(cfg["Camera"].getint("buffer_number", fallback=4))
             stream.StreamBufferHandlingMode.set(GxDSStreamBufferHandlingModeEntry.OLDEST_FIRST)
 
             self._running = True
@@ -187,12 +192,12 @@ class CameraWorker(QThread):
                         pix, tx, ty, circles_len = detect_image(self.section, h, w, gray, bgr)
                     elif detector == 2:
                         # 引入检测算法接口
-                        from detector.detector import one_detect_image
-                        pix, tx, ty, circles_len = one_detect_image()
+                        from detector.detector import detect_image
+                        pix, tx, ty, circles_len = detect_image(self.section, h, w, gray, bgr)
                     else:
                         # 引入检测算法接口
-                        from detector.detector import one_detect_image
-                        pix, tx, ty, circles_len = one_detect_image()
+                        from detector.detector import detect_image
+                        pix, tx, ty, circles_len = detect_image(self.section, h, w, gray, bgr)
 
                     self.frameReady.emit(pix)  # 发射图像信号
                     self.logMessage.emit(f"[{self.section}] 检测完成: 圆心=({tx},{ty}), 圆管数量={circles_len}")

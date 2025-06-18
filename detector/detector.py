@@ -2,7 +2,7 @@
 """
 
 detector：
-    图像检测算法 目前适用于：22mm-双端开口-无色
+    图像检测算法 目前适用于：22mm-双端开口-无色、16mm_双端闭口_棕色
 
 修改人： hnchen
 修改时间： 2025/06/17
@@ -74,6 +74,7 @@ def nms_circles(circles: List[Tuple],
 def detect_circles_via_hough(gray: np.ndarray,
                               ksize_grid: Tuple[int,int] = (9,9),
                               sigma_x: float = 1.0,
+                              sigma_y: float = 1.0,
                               dp: float = 1.2,
                               min_dist: float = 200,
                               param1: float = 110,
@@ -97,7 +98,7 @@ def detect_circles_via_hough(gray: np.ndarray,
         List[Tuple[None, Tuple[int,int,int]]]: 检测出的圆的列表，每个元素为 (None, (cx, cy, r))。
     """
     # 先进行高斯模糊，抑制噪声
-    blur = cv2.GaussianBlur(gray, ksize_grid, sigma_x)
+    blur = cv2.GaussianBlur(gray, ksize_grid, sigma_x, sigma_y)
     # 使用霍夫变换，寻找所有圆
     circles = cv2.HoughCircles(
         blur, cv2.HOUGH_GRADIENT, dp=dp, minDist=min_dist,
@@ -192,7 +193,7 @@ def draw_detected_circles(img: np.ndarray,
         tx, ty = target
         cv2.circle(annotated, (tx, ty), 6, target_color, -1)
         cv2.putText(annotated, f"Top-Left: ({tx},{ty})", (tx + 8, ty - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, target_color, 2)
-    cv2.imwrite("output_with_circles.png", annotated)
+
     return annotated
 
 
@@ -251,7 +252,7 @@ def detect_image (section: str, height: float, width: float, gray: np.ndarray, b
     gray_p[:, right:] = 0
 
     # 第二步：Hough圆检测
-    h_circles = detect_circles_via_hough(gray_p, (ksize_x, ksize_y), sigma_x, dp, min_dist, param1, param2, min_radius, max_radius)
+    h_circles = detect_circles_via_hough(gray_p, (ksize_x, ksize_y), sigma_x, sigma_y, dp, min_dist, param1, param2, min_radius, max_radius)
 
     # 第三步：非极大抑制过滤重叠
     circles = nms_circles(h_circles, overlap_thresh)
