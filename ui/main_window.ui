@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>上管机图像检测程序</string>
+   <string>上管程序</string>
   </property>
   <widget class="QWidget" name="central widget">
    <property name="font">
@@ -50,7 +50,6 @@
             </property>
             <layout class="QVBoxLayout" name="verticalLayoutControls">
               <property name="spacing"><number>5</number></property>
-
               <!-- Mode selection group -->
               <item>
                 <widget class="QGroupBox" name="groupMode">
@@ -70,26 +69,35 @@
                   </layout>
                 </widget>
               </item>
-              <!-- Save image checkbox group -->
               <item>
-                <widget class="QGroupBox" name="groupSave">
-                  <property name="title"><string>Save Options</string></property>
-                  <layout class="QVBoxLayout" name="verticalLayoutSave">
-                    <property name="spacing"><number>5</number></property>
-
-                    <item><widget class="QCheckBox" name="chkSaveImage"><property name="text"><string>保存图片</string></property></widget></item>
-                  </layout>
-                </widget>
+                <layout class="QHBoxLayout" name="horizontalLayoutSaveReturn">
+                  <!-- Save image checkbox group -->
+                  <item>
+                    <widget class="QGroupBox" name="groupSave">
+                      <property name="title"><string>Save Options</string></property>
+                      <layout class="QVBoxLayout" name="verticalLayoutSave">
+                        <property name="spacing"><number>5</number></property>
+                        <item><widget class="QCheckBox" name="chkSaveImage"><property name="text"><string>保存图片</string></property></widget></item>
+                      </layout>
+                    </widget>
+                  </item>
+                  <!-- “返回登录”按钮 -->
+                  <item>
+                    <widget class="QPushButton" name="btnReturnLogin">
+                      <property name="text"><string>返回登录</string></property>
+                      <property name="minimumWidth"><number>80</number></property>
+                    </widget>
+                  </item>
+                </layout>
               </item>
-              <!-- Camera controls group -->
-              <item>
-                <widget class="QGroupBox" name="groupCamera">
-                  <property name="title"><string>Camera</string></property>
-                  <layout class="QHBoxLayout" name="horizontalLayoutCamera">
-                    <property name="spacing"><number>20</number></property>
-
-                    <item><widget class="QPushButton" name="btnConnectCamera"><property name="text"><string>连接相机</string></property><property name="minimumWidth"><number>120</number></property><property name="minimumHeight"><number>40</number></property><property name="maximumWidth"><number>120</number></property><property name="maximumHeight"><number>40</number></property></widget></item>
-                    <item><widget class="QLabel" name="labelCameraStatus"><property name="text"><string>相机状态： 尚未连接</string></property></widget></item>
+          <!-- Camera controls group -->
+          <item>
+            <widget class="QGroupBox" name="groupCamera">
+              <property name="title"><string>Camera</string></property>
+                <layout class="QHBoxLayout" name="horizontalLayoutCamera">
+                  <property name="spacing"><number>20</number></property>
+                  <item><widget class="QPushButton" name="btnConnectCamera"><property name="text"><string>连接相机</string></property><property name="minimumWidth"><number>120</number></property><property name="minimumHeight"><number>40</number></property><property name="maximumWidth"><number>120</number></property><property name="maximumHeight"><number>40</number></property></widget></item>
+                  <item><widget class="QLabel" name="labelCameraStatus"><property name="text"><string>相机状态： 尚未连接</string></property></widget></item>
                   </layout>
                 </widget>
               </item>

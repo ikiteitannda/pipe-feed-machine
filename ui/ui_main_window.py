@@ -74,6 +74,8 @@ class Ui_MainWindow(object):
 
         self.verticalLayoutControls.addWidget(self.groupMode)
 
+        self.horizontalLayoutSaveReturn = QHBoxLayout()
+        self.horizontalLayoutSaveReturn.setObjectName(u"horizontalLayoutSaveReturn")
         self.groupSave = QGroupBox(self.groupControls)
         self.groupSave.setObjectName(u"groupSave")
         self.verticalLayoutSave = QVBoxLayout(self.groupSave)
@@ -85,7 +87,16 @@ class Ui_MainWindow(object):
         self.verticalLayoutSave.addWidget(self.chkSaveImage)
 
 
-        self.verticalLayoutControls.addWidget(self.groupSave)
+        self.horizontalLayoutSaveReturn.addWidget(self.groupSave)
+
+        self.btnReturnLogin = QPushButton(self.groupControls)
+        self.btnReturnLogin.setObjectName(u"btnReturnLogin")
+        self.btnReturnLogin.setMinimumWidth(80)
+
+        self.horizontalLayoutSaveReturn.addWidget(self.btnReturnLogin)
+
+
+        self.verticalLayoutControls.addLayout(self.horizontalLayoutSaveReturn)
 
         self.groupCamera = QGroupBox(self.groupControls)
         self.groupCamera.setObjectName(u"groupCamera")
@@ -149,12 +160,13 @@ class Ui_MainWindow(object):
     # setupUi
 
     def retranslateUi(self, MainWindow):
-        MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"\u4e0a\u7ba1\u673a\u56fe\u50cf\u68c0\u6d4b\u7a0b\u5e8f", None))
+        MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"\u4e0a\u7ba1\u7a0b\u5e8f", None))
         self.groupBottom.setTitle(QCoreApplication.translate("MainWindow", u"Operations", None))
         self.groupControls.setTitle(QCoreApplication.translate("MainWindow", u"Controls", None))
         self.groupMode.setTitle(QCoreApplication.translate("MainWindow", u"Mode", None))
         self.groupSave.setTitle(QCoreApplication.translate("MainWindow", u"Save Options", None))
         self.chkSaveImage.setText(QCoreApplication.translate("MainWindow", u"\u4fdd\u5b58\u56fe\u7247", None))
+        self.btnReturnLogin.setText(QCoreApplication.translate("MainWindow", u"\u8fd4\u56de\u767b\u5f55", None))
         self.groupCamera.setTitle(QCoreApplication.translate("MainWindow", u"Camera", None))
         self.btnConnectCamera.setText(QCoreApplication.translate("MainWindow", u"\u8fde\u63a5\u76f8\u673a", None))
         self.labelCameraStatus.setText(QCoreApplication.translate("MainWindow", u"\u76f8\u673a\u72b6\u6001\uff1a \u5c1a\u672a\u8fde\u63a5", None))

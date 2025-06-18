@@ -99,7 +99,7 @@ class LoginDialog(QDialog):
     """
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("系统登录")
+        self.setWindowTitle("上管程序登录")
         self.setFixedSize(360, 220)
 
         # 加载并应用 QSS

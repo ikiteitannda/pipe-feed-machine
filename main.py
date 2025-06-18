@@ -13,6 +13,7 @@ import sys
 import os
 import math
 import datetime
+import time
 
 import cv2
 from PySide6.QtWidgets import (
@@ -92,6 +93,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.comboMode.setCurrentIndex(0)
         # 绑定信号，切换模式时刷新
         self.comboMode.currentIndexChanged.connect(self.on_mode_changed_combo)
+        # 绑定信号，返回登录
+        self.btnReturnLogin.clicked.connect(self.on_return_login)
 
         # ------ 底部布局比例 ------
         self.gridLayoutBottom.setColumnStretch(0, 2)
@@ -115,7 +118,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.graphicsView.setResizeAnchor(QGraphicsView.AnchorViewCenter)
 
         # ------ 默认模式、线程变量 ------
-        self.current_section = self.sections[0]
         self.cam_thread = None
         self.plc_thread = None
 
@@ -130,6 +132,72 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.log_name = f"{self.log_date.isoformat()}.log"
         self.log_file = open(os.path.join(self.logs_dir, self.log_name), 'a', encoding='utf-8')
         self.log_file.close()
+
+    def on_return_login(self):
+        """
+        点击“返回登录”时：
+        1. 隐藏主窗口
+        2. 弹出登录对话框
+        3. 如果登录成功或跳过，则重新显示主窗口；否则退出
+        """
+        # 隐藏主窗口
+        self.hide()
+        dlg = LoginDialog(self)
+        if self.cam_thread is not None:
+            # ------ 关闭当前线程 ------
+            self.on_check(0)
+        # ------ 等待线程关闭 ------
+        while self.cam_thread is not None:
+            time.sleep(0.01)
+        if dlg.exec() == QDialog.Accepted:
+            self.reflush_system(dlg.skipped)
+        else:
+            # 用户点了取消或者关闭按钮，直接退出
+            QApplication.quit()
+
+    def reflush_system(self, skipped: bool = True):
+        """
+        点击“返回登录”后： 更新所有账户权限
+        """
+        # 所有节名（含 Calib, Plc, Camera...）
+        config = load_ini()
+        exclude = {'Calib', 'Plc', 'Camera', 'Detector', 'Auth'} if skipped else {'Auth', 'Detector'}
+        self.sections = [s for s in config.sections() if s not in exclude]
+        self.current_section = self.sections[0]
+        self.config_widgets = {}  # 存放 label+edit
+        self._edits = {}  # 存放 (section,key)->QLineEdit
+        # 过滤特定节，构建参数控件列表（但不布局）
+        for section in self.sections:
+            if section not in self.config_widgets:
+                for key, val in config[section].items():
+                    lbl = QLabel(f"{key.replace('_', ' ').title()}:")
+                    edit = QLineEdit(val)
+                    edit.setMaximumWidth(320)
+                    self.config_widgets[f"{section}.{key}"] = (lbl, edit)
+
+        # ------ 模式选择下拉框 ------
+        # modes 所有的节
+        self.modes = [sec for sec in self.sections]
+        # 清空旧项
+        self.comboMode.clear()
+        # 添加选项
+        self.comboMode.addItems(self.modes)
+        # 初始选中第一个
+        self.comboMode.setCurrentIndex(0)
+
+        # 模式切换一次，触发参数区绘制
+        self.on_mode_changed_combo(self.comboMode.currentIndex())
+
+        # ------ 日志系统初始化 ------
+        self.listLogs.clear()
+        self.logs_dir = os.path.join(get_exe_dir(), "logs")
+        os.makedirs(self.logs_dir, exist_ok=True)
+        self.log_date = datetime.date.today()
+        self.log_name = f"{self.log_date.isoformat()}.log"
+        self.log_file = open(os.path.join(self.logs_dir, self.log_name), 'a', encoding='utf-8')
+        self.log_file.close()
+
+        self.show()
 
     def on_check_save_image_toggled(self, checked: bool):
         """
