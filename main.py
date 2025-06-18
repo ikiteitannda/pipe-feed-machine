@@ -147,8 +147,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             # ------ 关闭当前线程 ------
             self.on_check(0)
         # ------ 等待线程关闭 ------
-        while self.cam_thread is not None:
-            time.sleep(0.01)
+        ix = 1
+        while ix > 0:
+            ix = 0 if self.cam_thread is None else 1
         if dlg.exec() == QDialog.Accepted:
             self.reflush_system(dlg.skipped)
         else:
@@ -159,6 +160,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """
         点击“返回登录”后： 更新所有账户权限
         """
+        self.skipp_login = skipped
         # 所有节名（含 Calib, Plc, Camera...）
         config = load_ini()
         exclude = {'Calib', 'Plc', 'Camera', 'Detector', 'Auth'} if skipped else {'Auth', 'Detector'}
@@ -187,7 +189,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # 模式切换一次，触发参数区绘制
         self.on_mode_changed_combo(self.comboMode.currentIndex())
-
+        self._scene.clear()
+        
         # ------ 日志系统初始化 ------
         self.listLogs.clear()
         self.logs_dir = os.path.join(get_exe_dir(), "logs")
