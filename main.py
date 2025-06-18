@@ -13,7 +13,6 @@ import sys
 import os
 import math
 import datetime
-import time
 
 import cv2
 from PySide6.QtWidgets import (
@@ -190,7 +189,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # 模式切换一次，触发参数区绘制
         self.on_mode_changed_combo(self.comboMode.currentIndex())
         self._scene.clear()
-        
+
         # ------ 日志系统初始化 ------
         self.listLogs.clear()
         self.logs_dir = os.path.join(get_exe_dir(), "logs")
