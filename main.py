@@ -23,7 +23,7 @@ from PySide6.QtCore import Qt, QDateTime
 from PySide6.QtGui import QPixmap
 
 from util.file import (load_ini, get_exe_dir, write_ini)
-from ui_main_window import Ui_MainWindow
+from ui.ui_main_window import Ui_MainWindow
 from work.camera_work import CameraWorker
 from work.plc_work import PlcWorker
 from ui.login import LoginDialog
