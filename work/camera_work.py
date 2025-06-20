@@ -140,7 +140,6 @@ class CameraWorker(QThread):
         plc_thread.start()
         self.plc_threads.append(plc_thread)
 
-
     def run(self):
         """
         线程入口：
