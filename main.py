@@ -203,7 +203,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         else:
             self.reflush_system(True)
 
-    def refulsh_models(self, skipped: bool):
+    def reflush_models(self, skipped: bool):
         """
         热更新参数配置并重新渲染
         """
@@ -242,7 +242,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         dlg = ModelManageDialog(self)
         if dlg.exec() == QDialog.Accepted:
             # 用户点了“保存”后，重新读取渲染
-            self.refulsh_models(self.skipp_login)
+            self.reflush_models(self.skipp_login)
 
     def reflush_system(self, skipped: bool = True):
         """
@@ -254,7 +254,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.btnManageModels.setVisible(not skipped)
 
         # 重新读取渲染模式及参数
-        self.refulsh_models(skipped)
+        self.reflush_models(skipped)
 
         self._scene.clear()
         self.btnConnectCamera.setText("连接相机")
