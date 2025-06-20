@@ -81,7 +81,13 @@ class ModelManageDialog(QDialog, Ui_ModelManageDialog):
         if dlg.exec() == QInputDialog.Accepted:
             name = dlg.textValue().strip()
             if name in self.cfg.sections():
-                QMessageBox.warning(self, "错误", "型号已存在！")
+                box = QMessageBox(self)
+                box.setWindowTitle("错误")
+                box.setText(f"型号已存在！")
+                box.setStandardButtons(QMessageBox.NoButton)
+                box.addButton("确认", QMessageBox.YesRole)
+                box.addButton("取消", QMessageBox.NoRole)
+                box.exec()
                 return
             self.cfg[name] = {}
             self.listModels.addItem(name)
@@ -97,7 +103,7 @@ class ModelManageDialog(QDialog, Ui_ModelManageDialog):
         box.setText(f"确认要删除型号 “{sec}”？")
         box.setStandardButtons(QMessageBox.NoButton)
         btn_yes = box.addButton("确认", QMessageBox.YesRole)
-        btn_no = box.addButton("取消", QMessageBox.NoRole)
+        box.addButton("取消", QMessageBox.NoRole)
         font = box.font()  # 取出当前字体（family、weight 都保留）
         font.setPointSize(12)  # 改为 12pt，按需调整
         box.setFont(font)  # 应用到整个对话框
@@ -149,7 +155,7 @@ class ModelManageDialog(QDialog, Ui_ModelManageDialog):
         box.setText(f"确认要删除参数 “{key}”？")
         box.setStandardButtons(QMessageBox.NoButton)
         btn_yes = box.addButton("确认", QMessageBox.YesRole)
-        btn_no = box.addButton("取消", QMessageBox.NoRole)
+        box.addButton("取消", QMessageBox.NoRole)
         font = box.font()  # 取出当前字体（family、weight 都保留）
         font.setPointSize(12)  # 改为 12pt，按需调整
         box.setFont(font)  # 应用到整个对话框
