@@ -279,8 +279,9 @@ class CameraWorker(QThread):
                 cam.close_device()
             finally:
                 pass
-        except Exception as e:
-            self.logMessage.emit(f"[{self.section}] 图像处理失败: {e}")
+        except:
+            self._running = False
+            self.statusCheck.emit(0)
 
     def stop(self):
         """

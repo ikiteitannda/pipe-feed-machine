@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from ui.model_manage_dialog import Ui_ModelManageDialog
-from util.file import (load_ini, get_exe_dir)
+from util.file import (load_ini, get_exe_dir, move_reserved_to_end)
 import os
 
 class ModelManageDialog(QDialog, Ui_ModelManageDialog):
@@ -89,6 +89,16 @@ class ModelManageDialog(QDialog, Ui_ModelManageDialog):
                 box.exec()
                 return
             self.cfg[name] = {}
+            current_row = self.listModels.currentRow()
+            old_section = None
+            if current_row >= 0:
+                old_section = self.listModels.item(current_row).text()
+            if old_section:
+                for key, val in self.cfg[old_section].items():
+                    # 复制一份
+                    self.cfg[name][key] = val
+            reserved = ['Calib', 'Camera', 'Plc', 'Auth']
+            move_reserved_to_end(self.cfg, reserved)
             self.listModels.addItem(name)
             self.listModels.setCurrentRow(self.listModels.count()-1)
 

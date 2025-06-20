@@ -60,3 +60,17 @@ def write_ini(section: str, key: str, value: str):
     config.set(section, key, value)
     with open(config_path, 'w', encoding='utf-8') as f:
         config.write(f)
+
+def move_reserved_to_end(cfg: configparser.ConfigParser, reserved: list[str]):
+    """
+    把 cfg 中名为 reserved 列表里各节，依次从原有位置移除并插入到末尾，
+    从而保证它们在写文件时排在最后。
+    """
+    for sec in reserved:
+        if cfg.has_section(sec):
+            # 先拷贝该节的数据
+            items = dict(cfg.items(sec))
+            # 再删除原来的节
+            cfg.remove_section(sec)
+            # 最后重新插入，相当于“移动到末尾”
+            cfg[sec] = items
