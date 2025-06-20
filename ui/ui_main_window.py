@@ -75,6 +75,7 @@ class Ui_MainWindow(object):
         self.verticalLayoutControls.addWidget(self.groupMode)
 
         self.horizontalLayoutSaveReturn = QHBoxLayout()
+        self.horizontalLayoutSaveReturn.setSpacing(8)
         self.horizontalLayoutSaveReturn.setObjectName(u"horizontalLayoutSaveReturn")
         self.groupSave = QGroupBox(self.groupControls)
         self.groupSave.setObjectName(u"groupSave")
@@ -83,17 +84,41 @@ class Ui_MainWindow(object):
         self.verticalLayoutSave.setObjectName(u"verticalLayoutSave")
         self.chkSaveImage = QCheckBox(self.groupSave)
         self.chkSaveImage.setObjectName(u"chkSaveImage")
+        font1 = QFont()
+        font1.setPointSize(13)
+        self.chkSaveImage.setFont(font1)
 
         self.verticalLayoutSave.addWidget(self.chkSaveImage)
 
 
         self.horizontalLayoutSaveReturn.addWidget(self.groupSave)
 
+        self.verticalLayoutButtons = QVBoxLayout()
+        self.verticalLayoutButtons.setSpacing(6)
+        self.verticalLayoutButtons.setObjectName(u"verticalLayoutButtons")
         self.btnReturnLogin = QPushButton(self.groupControls)
         self.btnReturnLogin.setObjectName(u"btnReturnLogin")
         self.btnReturnLogin.setMinimumWidth(80)
+        self.btnReturnLogin.setMinimumHeight(35)
+        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        sizePolicy1.setHorizontalStretch(0)
+        sizePolicy1.setVerticalStretch(0)
+        sizePolicy1.setHeightForWidth(self.btnReturnLogin.sizePolicy().hasHeightForWidth())
+        self.btnReturnLogin.setSizePolicy(sizePolicy1)
 
-        self.horizontalLayoutSaveReturn.addWidget(self.btnReturnLogin)
+        self.verticalLayoutButtons.addWidget(self.btnReturnLogin)
+
+        self.btnManageModels = QPushButton(self.groupControls)
+        self.btnManageModels.setObjectName(u"btnManageModels")
+        self.btnManageModels.setMinimumWidth(80)
+        self.btnManageModels.setMinimumHeight(35)
+        sizePolicy1.setHeightForWidth(self.btnManageModels.sizePolicy().hasHeightForWidth())
+        self.btnManageModels.setSizePolicy(sizePolicy1)
+
+        self.verticalLayoutButtons.addWidget(self.btnManageModels)
+
+
+        self.horizontalLayoutSaveReturn.addLayout(self.verticalLayoutButtons)
 
 
         self.verticalLayoutControls.addLayout(self.horizontalLayoutSaveReturn)
@@ -125,11 +150,11 @@ class Ui_MainWindow(object):
 
         self.groupConfig = QGroupBox(self.groupBottom)
         self.groupConfig.setObjectName(u"groupConfig")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
-        sizePolicy1.setHorizontalStretch(0)
-        sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(self.groupConfig.sizePolicy().hasHeightForWidth())
-        self.groupConfig.setSizePolicy(sizePolicy1)
+        sizePolicy2 = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        sizePolicy2.setHorizontalStretch(0)
+        sizePolicy2.setVerticalStretch(0)
+        sizePolicy2.setHeightForWidth(self.groupConfig.sizePolicy().hasHeightForWidth())
+        self.groupConfig.setSizePolicy(sizePolicy2)
         self.verticalLayoutConfig = QVBoxLayout(self.groupConfig)
         self.verticalLayoutConfig.setObjectName(u"verticalLayoutConfig")
         self.labelConfigWarning = QLabel(self.groupConfig)
@@ -166,7 +191,8 @@ class Ui_MainWindow(object):
         self.groupMode.setTitle(QCoreApplication.translate("MainWindow", u"Mode", None))
         self.groupSave.setTitle(QCoreApplication.translate("MainWindow", u"Save Options", None))
         self.chkSaveImage.setText(QCoreApplication.translate("MainWindow", u"\u4fdd\u5b58\u56fe\u7247", None))
-        self.btnReturnLogin.setText(QCoreApplication.translate("MainWindow", u"\u8fd4\u56de\u767b\u5f55", None))
+        self.btnReturnLogin.setText(QCoreApplication.translate("MainWindow", u"\u7ba1\u7406\u5458\u767b\u5f55", None))
+        self.btnManageModels.setText(QCoreApplication.translate("MainWindow", u"\u6ce2\u7ba1\u578b\u53f7\u7ba1\u7406", None))
         self.groupCamera.setTitle(QCoreApplication.translate("MainWindow", u"Camera", None))
         self.btnConnectCamera.setText(QCoreApplication.translate("MainWindow", u"\u8fde\u63a5\u76f8\u673a", None))
         self.labelCameraStatus.setText(QCoreApplication.translate("MainWindow", u"\u76f8\u673a\u72b6\u6001\uff1a \u5c1a\u672a\u8fde\u63a5", None))

@@ -17,7 +17,6 @@ import cv2
 
 from gxipy.gxiapi import DeviceManager
 from gxipy.gxidef import (
-    GxAccessMode,
     GxSwitchEntry,
     GxTriggerSourceEntry,
     GxTriggerActivationEntry,
@@ -27,13 +26,31 @@ from gxipy.gxidef import (
 from PySide6.QtCore import QThread, Signal, Slot
 
 from util.file import (load_ini, get_exe_dir)
+from work.plc_work import PlcWorker
+from detector.detector import detect_image
+
+def checkCamera(section: str, timeout: int, index: int) -> bool:
+    """
+    检测是否有相机
+    :param section: 当前模式
+    :param timeout: 相机设备检测超时
+    :param index: 相机索引
+    """
+    try:
+        mgr = DeviceManager()
+        # 更新设备列表
+        cnt, _ = mgr.update_device_list(timeout)
+        if cnt < index:
+            return False
+        return True
+    except Exception as e:
+        raise ValueError(f"[{section}]未检测到相机：{e}")
 
 class CameraWorker(QThread):
     # 信号定义：
     frameReady = Signal(object)          # 输出处理后 QPixmap 图像
     statusCheck = Signal(int)            # 输出相机连接状态（设备数或 0）
     logMessage = Signal(str)             # 输出运行日志信息
-    coordReady = Signal(float, float, int)# 输出物理坐标 x,z 及圆管数量
 
     def __init__(self, section: str, save_image: bool, index=1, timeout=5000, parent=None):
         """
@@ -55,6 +72,8 @@ class CameraWorker(QThread):
         self.section = section            # INI 配置节名
         self._running = False             # 线程运行标志
         self.save_image = save_image      # 是否保存原始图片
+        self.plc_threads = []             # 存放所有由本线程启动的 PLCWorker 对象
+
 
     @Slot(str)
     def set_section(self, section):
@@ -98,6 +117,29 @@ class CameraWorker(QThread):
             # 转换失败，写日志并返回非法值
             self.logMessage.emit(f"[{self.section}] 坐标转换失败：{ex}")
             return -1, -1
+
+    def send_coord(self, rx: float, rz: float, count: int = 0):
+        """
+        向Plc发送物理坐标 x, z及圆管数量
+        :param rx: 物理坐标 x
+        :param rz: 物理坐标 z
+        :param count: 圆管数量
+        """
+        # 从 INI 读取 PLC 配置
+        config = load_ini()
+        plc_conf = config['Plc']
+        host = plc_conf.get('Host')
+        port = plc_conf.getint('Port')
+        slave_id = plc_conf.getint('SlaveId')
+        start_addr = plc_conf.getint('StartAddr')
+        # 初始化 PLC 线程
+        plc_thread = PlcWorker(
+            section=self.section, host=host, port=port, slave_id=slave_id, start_addr=start_addr, rx=rx, rz=rz, count=count
+        )
+        plc_thread.logMessage = self.logMessage
+        plc_thread.start()
+        self.plc_threads.append(plc_thread)
+
 
     def run(self):
         """
@@ -183,23 +225,12 @@ class CameraWorker(QThread):
                         continue
                     self.logMessage.emit(f"[{self.section}] 已获取图像")
                     self.logMessage.emit(f"[{self.section}] 检测开始...")
-                    # 根据配置获取当前模式对应的图像检测算法
-                    cfg = load_ini()
-                    detector = cfg["Detector"].getint(self.section)
-                    if detector == 1:
-                        # 引入检测算法接口
-                        from detector.detector import detect_image
-                        pix, tx, ty, circles_len = detect_image(self.section, h, w, gray, bgr)
-                    elif detector == 2:
-                        # 引入检测算法接口
-                        from detector.detector import detect_image
-                        pix, tx, ty, circles_len = detect_image(self.section, h, w, gray, bgr)
-                    else:
-                        # 引入检测算法接口
-                        from detector.detector import detect_image
-                        pix, tx, ty, circles_len = detect_image(self.section, h, w, gray, bgr)
 
-                    self.frameReady.emit(pix)  # 发射图像信号
+                    # 检测算法
+                    pix, tx, ty, circles_len = detect_image(self.section, h, w, gray, bgr)
+
+                    # 发射图像信号
+                    self.frameReady.emit(pix)
                     self.logMessage.emit(f"[{self.section}] 检测完成: 圆心=({tx},{ty}), 圆管数量={circles_len}")
 
                     # 可选：保存原图文件 构造文件名：YYYYMMDD_节名.bmp
@@ -231,7 +262,7 @@ class CameraWorker(QThread):
                         # 坐标转换并发 PLC 信号
                         rx, rz = self.transform_to_robot_position(tx, ty)
                         if abs(rx) <= 200 and abs(rz) <= 500 and circles_len > 0:
-                            self.coordReady.emit(rx, rz, circles_len)
+                            self.send_coord(rx, rz, circles_len)
                         else:
                             self.logMessage.emit(f"[{self.section}] 坐标越界，忽略发送: x={rx}, z={rz}")
                 except Exception as e:
@@ -257,4 +288,10 @@ class CameraWorker(QThread):
         停止线程：设置标志并等待退出
         """
         self._running = False
+        # 停本线程中所有 PLC 子线程
+        for plc in list(self.plc_threads):
+            plc.stop()
+        # 等它们都结束
+        for plc in list(self.plc_threads):
+            plc.wait()
         self.wait()

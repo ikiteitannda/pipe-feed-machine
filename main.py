@@ -13,6 +13,7 @@ import sys
 import os
 import math
 import datetime
+import time
 
 import cv2
 from PySide6.QtWidgets import (
@@ -24,7 +25,8 @@ from PySide6.QtGui import QPixmap
 
 from util.file import (load_ini, get_exe_dir, write_ini)
 from ui.ui_main_window import Ui_MainWindow
-from work.camera_work import CameraWorker
+from ui.model_manage_window import ModelManageDialog
+from work.camera_work import (CameraWorker, checkCamera)
 from work.plc_work import PlcWorker
 from ui.login import LoginDialog
 
@@ -56,81 +58,128 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.skipp_login = skipped
         # 加载 UI
         self.setupUi(self)
+        try:
+            # ------ 顶部主布局权重调整 ------
+            self.gridLayout.setColumnStretch(0, 6)
+            self.gridLayout.setColumnStretch(1, 4)
+            self.gridLayout.setRowStretch(0, 7)
+            self.gridLayout.setRowStretch(1, 3)
 
-        # ------ 顶部主布局权重调整 ------
-        self.gridLayout.setColumnStretch(0, 6)
-        self.gridLayout.setColumnStretch(1, 4)
-        self.gridLayout.setRowStretch(0, 7)
-        self.gridLayout.setRowStretch(1, 3)
+            # ------ 准备动态模式切换和参数编辑 ------
+            # 所有节名（含 Calib, Plc, Camera...）
+            config = load_ini()
+            exclude = {'Calib', 'Plc', 'Camera', 'Detector', 'Auth'} if skipped else {'Auth', 'Detector'}
+            self.sections = [s for s in config.sections() if s not in exclude]
+            self.current_section = self.sections[0]
+            self.config_widgets = {}  # 存放 label+edit
+            self._edits = {}  # 存放 (section,key)->QLineEdit
 
-        # ------ 准备动态模式切换和参数编辑 ------
-        # 所有节名（含 Calib, Plc, Camera...）
+            # 过滤特定节，构建参数控件列表（但不布局）
+            for section in self.sections:
+                if section not in self.config_widgets:
+                    for key, val in config[section].items():
+                        lbl = QLabel(f"{key.replace('_', ' ').title()}:")
+                        edit = QLineEdit(val)
+                        edit.setMaximumWidth(320)
+                        self.config_widgets[f"{section}.{key}"] = (lbl, edit)
+
+            # ------ 模式选择下拉框 ------
+            # modes 所有的节
+            self.modes = [sec for sec in self.sections]
+            # 清空旧项
+            self.comboMode.clear()
+            # 添加选项
+            self.comboMode.addItems(self.modes)
+            # 初始选中第一个
+            self.comboMode.setCurrentIndex(0)
+            # 绑定信号，切换模式时刷新
+            self.comboMode.currentIndexChanged.connect(self.on_mode_changed_combo)
+            # 绑定信号，返回登录
+            self.btnReturnLogin.clicked.connect(self.on_return_login)
+
+            # 圆管型号管理按钮默认不显示
+            self.btnManageModels.setVisible(False)
+            self.btnManageModels.clicked.connect(self.on_manage_models)
+
+            # ------ 底部布局比例 ------
+            self.gridLayoutBottom.setColumnStretch(0, 2)
+            self.gridLayoutBottom.setColumnStretch(1, 8)
+            self.gridLayoutBottom.setContentsMargins(4, 4, 4, 4)
+            self.verticalLayoutControls.setContentsMargins(2, 2, 2, 2)
+
+            # 清空参数编辑区
+            self.labelConfigWarning.setFixedHeight(35)
+            clear_layout(self.gridConfig)
+
+            # ------ 按钮和复选框信号 ------
+            self.labelCameraStatus.setStyleSheet("color:red;font-size:16px;font-weight: bold;")
+            self.btnConnectCamera.clicked.connect(self.on_connect_camera)
+            self.save_image = False
+            self.chkSaveImage.toggled.connect(self.on_check_save_image_toggled)
+
+            # ------ GraphicsView 场景准备 ------
+            self._scene = QGraphicsScene(self)
+            self.graphicsView.setScene(self._scene)
+            self.graphicsView.setResizeAnchor(QGraphicsView.AnchorViewCenter)
+
+            # ------ 默认模式、线程变量 ------
+            self.cam_thread = None
+            # 模式切换一次，触发参数区绘制
+            self.on_mode_changed_combo(self.comboMode.currentIndex())
+
+            # ------ 日志系统初始化 ------
+            self.listLogs.clear()
+            self.logs_dir = os.path.join(get_exe_dir(), "logs")
+            os.makedirs(self.logs_dir, exist_ok=True)
+            self.log_date = datetime.date.today()
+            self.log_name = f"{self.log_date.isoformat()}.log"
+            self.log_file = open(os.path.join(self.logs_dir, self.log_name), 'a', encoding='utf-8')
+            self.log_file.close()
+
+            # ------ 自动连接相机 ------
+            self.auto_link_camera()
+
+        except Exception as e:
+            self.on_log_message(f"程序初始化异常：{e}")
+
+    def auto_link_camera(self):
+        """
+        自动连接相机
+        """
         config = load_ini()
-        exclude = {'Calib', 'Plc', 'Camera', 'Detector', 'Auth'} if skipped else {'Auth', 'Detector'}
-        self.sections = [s for s in config.sections() if s not in exclude]
-        self.current_section = self.sections[0]
-        self.config_widgets = {}  # 存放 label+edit
-        self._edits = {}  # 存放 (section,key)->QLineEdit
+        camera_conf = config['Camera']
+        index = camera_conf.getint('Index', fallback=1)
+        timeout = camera_conf.getint('Timeout', fallback=3000)
+        try:
+            if checkCamera(self.current_section, timeout, index):
+                self.on_connect_camera()
+            else:
+                self.labelCameraStatus.setText("相机状态： 未检测到相机")
+                self.labelCameraStatus.setStyleSheet("color:red;font-size:16px;font-weight: bold;")
+        except Exception as e:
+            self.on_log_message(f"[{self.current_section}] 连接相机失败，失败原因：{e}")
 
-        # 过滤特定节，构建参数控件列表（但不布局）
-        for section in self.sections:
-            if section not in self.config_widgets:
-                for key, val in config[section].items():
-                    lbl = QLabel(f"{key.replace('_', ' ').title()}:")
-                    edit = QLineEdit(val)
-                    edit.setMaximumWidth(320)
-                    self.config_widgets[f"{section}.{key}"] = (lbl, edit)
-
-        # ------ 模式选择下拉框 ------
-        # modes 所有的节
-        self.modes = [sec for sec in self.sections]
-        # 清空旧项
-        self.comboMode.clear()
-        # 添加选项
-        self.comboMode.addItems(self.modes)
-        # 初始选中第一个
-        self.comboMode.setCurrentIndex(0)
-        # 绑定信号，切换模式时刷新
-        self.comboMode.currentIndexChanged.connect(self.on_mode_changed_combo)
-        # 绑定信号，返回登录
-        self.btnReturnLogin.clicked.connect(self.on_return_login)
-
-        # ------ 底部布局比例 ------
-        self.gridLayoutBottom.setColumnStretch(0, 2)
-        self.gridLayoutBottom.setColumnStretch(1, 8)
-        self.gridLayoutBottom.setContentsMargins(4, 4, 4, 4)
-        self.verticalLayoutControls.setContentsMargins(2, 2, 2, 2)
-
-        # 清空参数编辑区
-        self.labelConfigWarning.setFixedHeight(35)
-        clear_layout(self.gridConfig)
-
-        # ------ 按钮和复选框信号 ------
-        self.labelCameraStatus.setStyleSheet("color:red;font-size:16px;font-weight: bold;")
-        self.btnConnectCamera.clicked.connect(self.on_connect_camera)
-        self.save_image = False
-        self.chkSaveImage.toggled.connect(self.on_check_save_image_toggled)
-
-        # ------ GraphicsView 场景准备 ------
-        self._scene = QGraphicsScene(self)
-        self.graphicsView.setScene(self._scene)
-        self.graphicsView.setResizeAnchor(QGraphicsView.AnchorViewCenter)
-
-        # ------ 默认模式、线程变量 ------
-        self.cam_thread = None
-        self.plc_thread = None
-
-        # 模式切换一次，触发参数区绘制
-        self.on_mode_changed_combo(self.comboMode.currentIndex())
-
-        # ------ 日志系统初始化 ------
-        self.listLogs.clear()
-        self.logs_dir = os.path.join(get_exe_dir(), "logs")
-        os.makedirs(self.logs_dir, exist_ok=True)
-        self.log_date = datetime.date.today()
-        self.log_name = f"{self.log_date.isoformat()}.log"
-        self.log_file = open(os.path.join(self.logs_dir, self.log_name), 'a', encoding='utf-8')
-        self.log_file.close()
+    def extra_close(self):
+        """
+        额外的关闭操作
+        """
+        if self.cam_thread:
+            self.on_log_message(f"[{self.current_section}] 等待子线程退出中...")
+            self.labelCameraStatus.setText("相机状态： 断开中...")
+            self.labelCameraStatus.setStyleSheet("color:orange;font-size:16px;font-weight: bold;")
+            # 禁用所有交互
+            self.setEnabled(False)
+            # 立刻刷新 UI
+            QApplication.processEvents()
+            try:
+                self.cam_thread.stop()
+                self.cam_thread = None
+            finally:
+                time.sleep(0.05)
+                QApplication.processEvents()
+                self.on_log_message(f"[{self.current_section}] 子线程均已关闭")
+                QApplication.processEvents()
+                time.sleep(0.5)
 
     def on_return_login(self):
         """
@@ -139,27 +188,25 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         2. 弹出登录对话框
         3. 如果登录成功或跳过，则重新显示主窗口；否则退出
         """
+        dlg = LoginDialog(self)
+        self.extra_close()
         # 隐藏主窗口
         self.hide()
-        dlg = LoginDialog(self)
-        if self.cam_thread is not None:
-            # ------ 关闭当前线程 ------
-            self.on_check(0)
-        # ------ 等待线程关闭 ------
-        ix = 1
-        while ix > 0:
-            ix = 0 if self.cam_thread is None else 1
-        if dlg.exec() == QDialog.Accepted:
-            self.reflush_system(dlg.skipped)
+        self.setEnabled(True)
+        if self.skipp_login:
+            if dlg.exec() == QDialog.Accepted:
+                self.reflush_system(dlg.skipped)
+            else:
+                # 用户点了取消或者关闭按钮，直接退出
+                QApplication.quit()
+            pass
         else:
-            # 用户点了取消或者关闭按钮，直接退出
-            QApplication.quit()
+            self.reflush_system(True)
 
-    def reflush_system(self, skipped: bool = True):
+    def refulsh_models(self, skipped: bool):
         """
-        点击“返回登录”后： 更新所有账户权限
+        热更新参数配置并重新渲染
         """
-        self.skipp_login = skipped
         # 所有节名（含 Calib, Plc, Camera...）
         config = load_ini()
         exclude = {'Calib', 'Plc', 'Camera', 'Detector', 'Auth'} if skipped else {'Auth', 'Detector'}
@@ -186,9 +233,33 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # 初始选中第一个
         self.comboMode.setCurrentIndex(0)
 
-        # 模式切换一次，触发参数区绘制
-        self.on_mode_changed_combo(self.comboMode.currentIndex())
+    def on_manage_models(self):
+        """
+        点击“圆管型号管理”时：
+        1. 隐藏主窗口
+        2. 弹出圆管型号管理界面
+        """
+        dlg = ModelManageDialog(self)
+        if dlg.exec() == QDialog.Accepted:
+            # 用户点了“保存”后，重新读取渲染
+            self.refulsh_models(self.skipp_login)
+
+    def reflush_system(self, skipped: bool = True):
+        """
+        点击“返回登录”后： 更新所有账户权限
+        """
+        self.skipp_login = skipped
+        self.btnReturnLogin.setText("管理员登录" if skipped else "退出登录")
+        # 型号管理按钮可见权限
+        self.btnManageModels.setVisible(not skipped)
+
+        # 重新读取渲染模式及参数
+        self.refulsh_models(skipped)
+
         self._scene.clear()
+        self.btnConnectCamera.setText("连接相机")
+        self.labelCameraStatus.setText("相机状态： 尚未连接")
+        self.labelCameraStatus.setStyleSheet("color:red;font-size:16px;font-weight: bold;")
 
         # ------ 日志系统初始化 ------
         self.listLogs.clear()
@@ -198,6 +269,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.log_name = f"{self.log_date.isoformat()}.log"
         self.log_file = open(os.path.join(self.logs_dir, self.log_name), 'a', encoding='utf-8')
         self.log_file.close()
+
+        # ------ 自动连接相机 ------
+        self.auto_link_camera()
 
         self.show()
 
@@ -230,13 +304,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     self.cam_thread.stop()
                 finally:
                     pass
-            if self.plc_thread:
-                try:
-                    self.plc_thread.stop()
-                finally:
-                    pass
             self.cam_thread = None
-            self.plc_thread = None
             self.btnConnectCamera.setText("连接相机")
             self.labelCameraStatus.setText("相机状态： 未检测到相机")
             self.labelCameraStatus.setStyleSheet("color:red;font-size:16px;font-weight: bold;")
@@ -265,12 +333,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.cam_thread.stop()
             finally:
                 pass
-            try:
-                self.plc_thread.stop()
-            finally:
-                pass
             self.cam_thread = None
-            self.plc_thread = None
             self.btnConnectCamera.setText("连接相机")
             self.labelCameraStatus.setText("相机状态： 未连接")
             self.labelCameraStatus.setStyleSheet("color:red;font-size:16px;font-weight: bold;")
@@ -279,21 +342,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             try:
                 self.labelCameraStatus.setText("相机状态： 连接中...")
                 self.labelCameraStatus.setStyleSheet("color:orange;font-size:16px;font-weight: bold;")
-                # 从 INI 读取 PLC 配置
-                config = load_ini()
-                plc_conf = config['Plc']
-                host = plc_conf.get('Host')
-                port = plc_conf.getint('Port')
-                slave_id = plc_conf.getint('SlaveId')
-                start_addr = plc_conf.getint('StartAddr')
-                # 启动 PLC 线程
-                self.plc_thread = PlcWorker(
-                    section=self.current_section, host=host, port=port, slave_id=slave_id, start_addr=start_addr
-                )
-                # 信号连接
-                self.plc_thread.logMessage.connect(self.on_log_message)
-                self.plc_thread.start()
                 # 从 INI 读取 Camera 配置
+                config = load_ini()
                 cam_conf = config['Camera']
                 index = cam_conf.getint('Index', fallback=1)
                 timeout = cam_conf.getint('Timeout', fallback=3000)
@@ -306,7 +356,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 # 信号连接
                 self.cam_thread.frameReady.connect(self.on_frame)
                 self.cam_thread.statusCheck.connect(self.on_check)
-                self.cam_thread.coordReady.connect(self.plc_thread.send_coord)
                 self.cam_thread.logMessage.connect(self.on_log_message)
                 self.cam_thread.start()
             except Exception as e:
@@ -356,8 +405,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # 更新线程读取的节
         if self.cam_thread and self.cam_thread.isRunning():
             self.cam_thread.set_section(self.current_section)
-        if self.plc_thread and self.plc_thread.isRunning():
-            self.plc_thread.set_section(self.current_section)
 
         # —— 根据是否选中 Camera、Plc 模式来控制那行红字提示 —— #
         if section in ['Camera', 'Plc']:
@@ -403,24 +450,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """
         程序关闭：先停止后台线程，再退出应用
         """
-        if self.cam_thread:
-            try:
-                self.cam_thread.stop()
-            finally:
-                pass
-        if self.plc_thread:
-            try:
-                self.plc_thread.stop()
-            finally:
-                pass
+        self.extra_close()
         super().closeEvent(event)
 
 
 if __name__ == '__main__':
     app = QApplication([])
-    dlg = LoginDialog()
-    if dlg.exec() == QDialog.Accepted:
-        # 登录或跳过，打开主窗口
-        w = MainWindow(dlg.skipped)
-        w.showMaximized()
-        sys.exit(app.exec())
+    w = MainWindow()
+    w.showMaximized()
+    sys.exit(app.exec())

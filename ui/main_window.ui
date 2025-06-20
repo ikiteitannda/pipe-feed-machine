@@ -70,26 +70,56 @@
                 </widget>
               </item>
               <item>
-                <layout class="QHBoxLayout" name="horizontalLayoutSaveReturn">
-                  <!-- Save image checkbox group -->
-                  <item>
-                    <widget class="QGroupBox" name="groupSave">
-                      <property name="title"><string>Save Options</string></property>
-                      <layout class="QVBoxLayout" name="verticalLayoutSave">
-                        <property name="spacing"><number>5</number></property>
-                        <item><widget class="QCheckBox" name="chkSaveImage"><property name="text"><string>保存图片</string></property></widget></item>
-                      </layout>
-                    </widget>
-                  </item>
-                  <!-- “返回登录”按钮 -->
-                  <item>
-                    <widget class="QPushButton" name="btnReturnLogin">
-                      <property name="text"><string>返回登录</string></property>
-                      <property name="minimumWidth"><number>80</number></property>
-                    </widget>
-                  </item>
-                </layout>
-              </item>
+               <layout class="QHBoxLayout" name="horizontalLayoutSaveReturn">
+                <!-- 两组之间多留一点空隙 -->
+                <property name="spacing"><number>8</number></property>
+                <!-- 左：保存图片复选框 -->
+                <item>
+                  <widget class="QGroupBox" name="groupSave">
+                    <property name="title"><string>Save Options</string></property>
+                    <layout class="QVBoxLayout" name="verticalLayoutSave">
+                      <property name="spacing"><number>5</number></property>
+                      <item>
+                        <widget class="QCheckBox" name="chkSaveImage">
+                          <property name="font"><font><pointsize>13</pointsize></font></property>
+                          <property name="text"><string>保存图片</string></property>
+                        </widget>
+                      </item>
+                    </layout>
+                  </widget>
+                </item>
+                <!-- 右：两个按钮上下分布 -->
+                <item>
+                  <layout class="QVBoxLayout" name="verticalLayoutButtons">
+                    <!-- 按钮之间留 5px 间距 -->
+                    <property name="spacing"><number>6</number></property>
+                    <!-- 管理员登录 -->
+                    <item>
+                      <widget class="QPushButton" name="btnReturnLogin">
+                        <property name="text"><string>管理员登录</string></property>
+                        <property name="minimumWidth"><number>80</number></property>
+                          <property name="minimumHeight"><number>35</number></property>
+                        <property name="sizePolicy">
+                          <sizepolicy hsizetype="Preferred" vsizetype="Fixed"/>
+                        </property>
+                      </widget>
+                    </item>
+
+                    <!-- 新增：波管型号管理 -->
+                    <item>
+                      <widget class="QPushButton" name="btnManageModels">
+                        <property name="text"><string>波管型号管理</string></property>
+                        <property name="minimumWidth"><number>80</number></property>
+                          <property name="minimumHeight"><number>35</number></property>
+                        <property name="sizePolicy">
+                          <sizepolicy hsizetype="Preferred" vsizetype="Fixed"/>
+                        </property>
+                      </widget>
+                    </item>
+                  </layout>
+                </item>
+             </layout>
+          </item>
           <!-- Camera controls group -->
           <item>
             <widget class="QGroupBox" name="groupCamera">

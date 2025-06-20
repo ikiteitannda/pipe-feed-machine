@@ -13,8 +13,9 @@ PlcWorker 线程：
 
 import struct
 import time
+
 from pymodbus.client import ModbusTcpClient
-from PySide6.QtCore import QThread, Slot, Signal
+from PySide6.QtCore import QThread, Signal
 from util.file import load_ini
 
 class PlcWorker(QThread):
@@ -28,6 +29,9 @@ class PlcWorker(QThread):
     :param port: PLC 的 Modbus TCP 端口（通常 502）
     :param slave_id: PLC 的 Unit ID
     :param start_addr: 写寄存器的起始地址
+    :param rx: 机械手物理坐标 x
+    :param rz: 机械手物理坐标 z
+    :param count: 圆管数量
     """
     def __init__(self,
                  section: str,
@@ -35,6 +39,9 @@ class PlcWorker(QThread):
                  port: int,
                  slave_id: int,
                  start_addr: int,
+                 rx: float,
+                 rz: float,
+                 count: int = 0,
                  parent=None):
         super().__init__(parent)
 
@@ -43,9 +50,11 @@ class PlcWorker(QThread):
         self.port = port  # PLC 端口
         self.slave_id = slave_id  # PLC Unit ID
         self.start_addr = start_addr  # 寄存器起始地址
-        self._queue = []  # 待发送的坐标队列 [(x,z,count), ...]
-        self._running = False  # 线程运行标志
         self.client = None  # Modbus 客户端实例
+        self.rx = rx # 机械手物理坐标 x
+        self.rz = rz # 机械手物理坐标 z
+        self.count = count # 圆管数量
+        self._running = False
 
         # 读取 INI 配置
         cfg = load_ini()
@@ -63,41 +72,23 @@ class PlcWorker(QThread):
         - 循环检查队列，有数据则连接 PLC 并写入寄存器
         - 支持失败重试和自动断线重连
         """
-        self._running = True
-        while self._running:
-            if not self._queue:
-                time.sleep(0.05)
-                continue
-            # 弹出一组坐标准备发送
-            x, z, count = self._queue.pop(0)
-            try:
-                # 创建并连接 Modbus 客户端
-                self.client = ModbusTcpClient(self.host, port=self.port)
-                if not self.client.connect():
-                    self.logMessage.emit(f"[{self.section}] plc无法连接到 {self.host}:{self.port}")
-                    continue
-                self.logMessage.emit(f"[{self.section}] 发送plc数据开始...")
-                # 构造寄存器值列表并写入
-                self.write_registers(x, z, count)
-            except Exception as e:
-                # 捕获任何异常，并记录日志
-                self.logMessage.emit(f"[{self.section}] plc处理失败：{e}")
-            finally:
-                # 关闭客户端连接
-                if self.client:
-                    self.client.close()
-
-    @Slot(str)
-    def set_section(self, section):
-        """外部槽：动态切换 INI 节名"""
-        self.section = section
-
-    @Slot(float, float, int)
-    def send_coord(self, x: float, z: float, count: int = 0):
-        """
-        外部槽：接收来自 CameraWorker 的坐标数据，追加到发送队列
-        """
-        self._queue.append((x, z, count))
+        try:
+            # 创建并连接 Modbus 客户端
+            self.client = ModbusTcpClient(self.host, port=self.port)
+            if not self.client.connect():
+                self.logMessage.emit(f"[{self.section}] plc无法连接到 {self.host}:{self.port}")
+                return
+            self.logMessage.emit(f"[{self.section}] 发送plc数据开始...")
+            # 写入寄存器
+            self.write_registers(self.rx, self.rz, self.count)
+        except Exception as e:
+            # 捕获任何异常，并记录日志
+            self.logMessage.emit(f"[{self.section}] plc处理失败：{e}")
+        finally:
+            # 关闭客户端连接
+            if self.client:
+                self.client.close()
+            pass
 
     def float_to_registers(self, value: float) -> list[int]:
         """
@@ -138,10 +129,15 @@ class PlcWorker(QThread):
         for key in self.seq:
             if key not in mapping:
                 raise ValueError(f"配置文件中未找到该属性：'{key}'")
-            regs.extend(self.float_to_registers(mapping[key]))
+            res = self.float_to_registers(mapping[key])
+            if res:
+                regs.extend(res)
+            else:
+                return
         # 写寄存器并重试逻辑
         times = 2
-        while self._running and times > 0:
+        self._running = True
+        while times > 0 and self._running:
             try:
                 result = self.client.write_registers(
                     address=self.start_addr,
@@ -155,16 +151,18 @@ class PlcWorker(QThread):
                 else:
                     # 成功，记录并退出
                     self.logMessage.emit(f"[{self.section}] 发送plc数据结束：机械手坐标=({x:.2f},{z:.2f})")
+                    self._running = False
                     return
             except Exception as e:
                 self.logMessage.emit(f"[{self.section}] plc写数据失败：{e}，重试中...")
                 times = times - 1
+            finally:
+                time.sleep(0.2)
         if times == 0:
             self.logMessage.emit(f"[{self.section}] 发送plc数据失败：机械手坐标=({x:.2f},{z:.2f}) 放弃本次发送")
 
     def stop(self):
-        """
-        停止线程：清空运行标志并等待线程结束
-        """
+        # 不要再重试
         self._running = False
+        # 等退出
         self.wait()
