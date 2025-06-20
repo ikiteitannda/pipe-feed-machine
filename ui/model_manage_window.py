@@ -83,7 +83,7 @@ class ModelManageDialog(QDialog, Ui_ModelManageDialog):
             if name in self.cfg.sections():
                 box = QMessageBox(self)
                 box.setWindowTitle("错误")
-                box.setText(f"型号已存在！")
+                box.setText(f"{name} 型号已存在！")
                 box.setStandardButtons(QMessageBox.NoButton)
                 box.addButton("取消", QMessageBox.NoRole)
                 box.exec()
