@@ -85,7 +85,6 @@ class ModelManageDialog(QDialog, Ui_ModelManageDialog):
                 box.setWindowTitle("错误")
                 box.setText(f"型号已存在！")
                 box.setStandardButtons(QMessageBox.NoButton)
-                box.addButton("确认", QMessageBox.YesRole)
                 box.addButton("取消", QMessageBox.NoRole)
                 box.exec()
                 return
